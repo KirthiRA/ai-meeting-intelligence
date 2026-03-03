@@ -1,12 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from transformers import pipeline
-import spacy
 
 app = FastAPI()
 
-# Enable CORS (so React frontend can connect later)
+# Enable CORS (so React frontend can connect)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,32 +13,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load NLP models
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-nlp = spacy.load("en_core_web_sm")
-
 class TranscriptRequest(BaseModel):
     text: str
+
 
 @app.get("/")
 def home():
     return {"message": "Meeting Intelligence Backend Running"}
 
+
 @app.post("/analyze")
 async def analyze_transcript(request: TranscriptRequest):
     text = request.text
 
-    # Limit input size for summarizer
-    summary = summarizer(text[:1024], max_length=150, min_length=40, do_sample=False)
+    # Simple lightweight summary logic
+    sentences = text.split(".")
+    summary = ". ".join(sentences[:3]).strip()
 
+    # Simple action item detection
     action_items = []
-    doc = nlp(text)
-
-    for sent in doc.sents:
-        if "will" in sent.text or "should" in sent.text:
-            action_items.append(sent.text)
+    for sentence in sentences:
+        if "will" in sentence.lower() or "should" in sentence.lower():
+            action_items.append(sentence.strip())
 
     return {
-        "summary": summary[0]["summary_text"],
+        "summary": summary,
         "action_items": action_items
     }
